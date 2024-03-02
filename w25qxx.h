@@ -98,7 +98,7 @@ struct w25q_memory_map {
 
 
 /* User-defined functions */
-typedef void (*w25q_spi_transfer_fn)(unsigned char *data_in, unsigned char *data_out, unsigned size);      // SPI data transmission function
+typedef void (*w25q_spi_transfer_fn)(void *data_in, void *data_out, unsigned size);      // SPI data transmission function
 typedef void * (*w25q_memory_allocator)(unsigned size);       // Memory allocation function
 typedef void (*w25q_memory_free_fn)(void *p);                        // Memory free function
 typedef void (*w25q_debug_printer)(char *data);                     // Debug print function
@@ -149,9 +149,9 @@ void w25q_debug_mem_summary(struct w25q_flash *flash, w25q_debug_printer printer
 /**
  * @brief Mount SPI Flash
  * 
- * @param[in] spi_data_func SPI data transmission handler, cannot be null.
- * @param[in] mem_allocator Memory allocation function
- * @param[in] free_func Memeory free function
+ * @param[in] flash SPI flash instance
+ * @param[in] spi_data_func SPI data transfer function
+ * @param[in] delay_fn Delay function
  * 
  * @return A struct representing a w25qxx flash or NULL
  * 
@@ -159,8 +159,7 @@ void w25q_debug_mem_summary(struct w25q_flash *flash, w25q_debug_printer printer
  * existing instance is given, values will be assigned to that instance and return NULL;
  * The function prefers the existing instance when both arguments are available.
 */
-struct w25q_flash * w25q_mount(struct w25q_flash *flash, w25q_spi_transfer_fn spi_data_func, w25q_memory_allocator mem_allocator, 
-                            w25q_memory_free_fn free_func, w25q_delay_fn delay_fn);
+struct w25q_flash * w25q_mount(struct w25q_flash *flash, w25q_spi_transfer_fn spi_data_func, w25q_delay_fn delay_fn);
 /**
  * @brief Read bytes starting from a specific address
  * 
@@ -190,7 +189,8 @@ unsigned char w25q_write(struct w25q_flash *flash, unsigned address, void *buffe
  * @brief Erase data on SPI based on given address range
  * 
  * @param[in] flash SPI flash instance
- * @param[in] sector sector number
+ * @param[in] start_address Start address, must be 4k-aligned
+ * @param[in] end_address End address, must be 4k-aligned
  * 
  * @return 1 on success, 0 on failure
 */

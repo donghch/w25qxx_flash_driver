@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include "w25qxx.h"
 #include "string.h"
+#include <Arduino.h>
 
 #ifndef NULL
 #define NULL 0
@@ -54,8 +55,8 @@ unsigned char w25q_mem_mark_sector(struct w25q_flash *flash, unsigned short sect
 
 static void set_dummy_bytes(void *p, unsigned size) {
     unsigned char *dummy_buf = (unsigned char *)p;
-    for (unsigned i = 0; i < size; i++) {
-        dummy_buf[i] = 0xff;
+    for (unsigned i = 0; i < size; i++, dummy_buf++) {
+        *dummy_buf = 0xff;
     }
 }
 
@@ -206,7 +207,7 @@ static
 #endif
 void w25q_wait_until_available(struct w25q_flash *flash) {
 
-    unsigned char status_data[2];
+    unsigned char status_data[3];
 
     while (1) {
         w25q_read_status_regs(flash, (void *)status_data);
@@ -348,17 +349,10 @@ unsigned char w25q_64k_blk_erase(struct w25q_flash *flash, unsigned address) {
 
 /* Standard Functions */
 
-struct w25q_flash * w25q_mount(struct w25q_flash *flash, w25q_spi_transfer_fn spi_data_func, w25q_memory_allocator mem_allocator, 
-                            w25q_memory_free_fn free_func, w25q_delay_fn delay_fn) {
+struct w25q_flash * w25q_mount(struct w25q_flash *flash, w25q_spi_transfer_fn spi_data_func, w25q_delay_fn delay_fn) {
     
     struct w25q_flash *f_instance = flash;
     unsigned char part_data[4];
-
-    if (flash == NULL) {    // Allocate memory if flash instance is not given
-        f_instance = (struct w25q_flash *)mem_allocator(sizeof(struct w25q_flash));
-        if (f_instance == NULL)
-            return f_instance;
-    }
 
     f_instance->spi_delay_func = delay_fn;
     f_instance->spi_send = spi_data_func;
@@ -366,9 +360,6 @@ struct w25q_flash * w25q_mount(struct w25q_flash *flash, w25q_spi_transfer_fn sp
     w25q_read_jedec(f_instance, (void *)part_data);
     // Check Manufacturer
     if (part_data[1] != W25Q_PRODUCER_ID) {     // Wrong part or spi error
-        if (flash == NULL) {    
-            free_func(f_instance);
-        }
         return NULL;
     }
 
@@ -382,9 +373,6 @@ struct w25q_flash * w25q_mount(struct w25q_flash *flash, w25q_spi_transfer_fn sp
     }
     
     // Oops, can't identify the model!
-    if (flash == NULL) {    
-        free_func(f_instance);
-    }
     return NULL;
 
 }
@@ -403,6 +391,7 @@ unsigned char w25q_read(struct w25q_flash *flash, unsigned address, void *buffer
     buf[3] = address & 0xff;
     /* Still, 3-byte addressing... */
     flash->spi_send(buf, buf, buffer_size);
+    printf("%s\n",buf);
     flash->spi_delay_func(W25Q_DELAY_TIME);
     return 1;
 
@@ -412,7 +401,6 @@ unsigned char w25q_write(struct w25q_flash *flash, unsigned address, void *buffe
 
     unsigned char *buf = (unsigned char *)buffer;
     unsigned char temp_buf[265];
-    unsigned page_num = buffer_size >> 8;
     unsigned limit;
 
     // Check parameters
@@ -436,14 +424,17 @@ unsigned char w25q_write(struct w25q_flash *flash, unsigned address, void *buffe
 
 unsigned char w25q_erase(struct w25q_flash *flash, unsigned start_address, unsigned end_address) {
     
-    if (end_address < start_address) {
+    if (end_address <= start_address)
         return 0;
+
+    if ((end_address >> 8) > flash->size)
+        return 0;
+
+    while (start_address < end_address) {
+        w25q_sector_erase(flash, start_address);
+        start_address += 4096;
     }
-    if (end_address - start_address <= 4096) {
-        return w25q_sector_erase(flash, start_address);
-    } else if (end_address - start_address <= 4096 * 16) {
-        return w25q_64k_blk_erase(flash, start_address);
-    }
+
     return 1;
 }
 
