@@ -24,7 +24,6 @@ SOFTWARE.
 
 #include "w25qxx.h"
 #include "string.h"
-#include <Arduino.h>
 
 #ifndef NULL
 #define NULL 0
