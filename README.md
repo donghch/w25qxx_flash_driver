@@ -13,4 +13,4 @@ Models with larger storage capacity will be supported in later versions.
 - Write
 - Erase
   
-Please refer to the header file for details, as formal documentation and examples are currently not available.  
+Please check the Wiki for more information as well as the header file. 
